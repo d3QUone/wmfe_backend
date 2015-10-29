@@ -9,6 +9,15 @@ from blueprints.main import main_app
 app = Flask("MainAPI")
 app.register_blueprint(main_app)
 app.register_blueprint(security)
+app.config["DEBUG"] = True
+
+
+if app.config["DEBUG"]:
+    from blueprints.models import init_database, clear_db
+    @app.before_first_request
+    def cr_db():
+        # init_database()
+        clear_db()
 
 
 @app.route("/test", methods=["GET", "POST", "PUT", "PATCH", "DELETE"])
@@ -18,4 +27,4 @@ def test():
 
 
 if __name__ == "__main__":
-    app.run(debug=True, host="127.0.0.1", port=8080)
+    app.run(host="127.0.0.1", port=8080)
