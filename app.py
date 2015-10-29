@@ -12,14 +12,6 @@ app.register_blueprint(security)
 app.config["DEBUG"] = True
 
 
-if app.config["DEBUG"]:
-    from blueprints.models import init_database, clear_db
-    @app.before_first_request
-    def cr_db():
-        # init_database()
-        clear_db()
-
-
 @app.route("/test", methods=["GET", "POST", "PUT", "PATCH", "DELETE"])
 @check_cookie(verbose=False)
 def test():

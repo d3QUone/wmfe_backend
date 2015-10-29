@@ -1,4 +1,5 @@
 fabric
 flask
 flask-peewee
+flask-script
 PyMySQL
