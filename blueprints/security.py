@@ -80,7 +80,7 @@ def reg_user():
                 p.following += 1
                 p.my_followers += 1
             except DoesNotExist:
-                print "Friend '{0}' doesn't exist".format(p_id)
+                pass
             except Exception as e:
                 print "Problem parsing JSON: {0}".format(e)
         p.save()
@@ -99,7 +99,6 @@ def reg_user():
 @apiParam {String} vkid User VK id
 @apiParam {String} recovery_code VK-API code to renew auth token when expires
 """
-# pass valid 'vkid' and 'recovery_code' (from vk) to get a new cookie
 @security.route("/renew_cookie", methods=["POST"])
 def renew_cookie():
     vkid = request.form.get(VKID_NAME, None)
@@ -111,7 +110,9 @@ def renew_cookie():
             new_cookie = generate_cookie()
             p.auth_cookie = new_cookie
             p.save()
-            r.set_cookie("auth", new_cookie, expires=time.time()+datetime.timedelta(days=1).total_seconds())
+            r.response = json.dumps({
+                "auth": new_cookie,
+            })
             r.status_code = 200
         except DoesNotExist:
             r.status_code = 401
