@@ -1,41 +1,94 @@
 __author__ = 'vladimir'
 
+import os
 import json
 import random
+import uuid
 
+from werkzeug.utils import secure_filename
 from flask import Blueprint, request, Response
 from loremipsum import generate_sentence
 
 from . import VKID_NAME
 from .decorators import check_cookie
-from .models import BaseModel, Person, PersonSubscriptions, Post, Meal, PostMeal, Likes, DoesNotExist, database
+from .models import Person, Post, Comment, Likes, DoesNotExist, database
 
 main_app = Blueprint("api", __name__)
 
+# TODO: add Picture handler on front-end server
 
-# create Post
+"""
+@api {post} /create_post Create a post at a specific (your) position, auth-cookie required
+@apiGroup Content
+@apiName CreatePost
+@apiVersion 0.1.0
+
+@apiParam {String} vkid User VK id
+@apiParam {String} text
+@apiParam {File} pic
+@apiParam {String} latitude
+@apiParam {String} longitude
+"""
 @main_app.route("/create_post", methods=["POST"])
 @check_cookie()
 def create_new_post():
     vkid = request.form.get(VKID_NAME)
-    text = request.form.get("text", "")
-    food_list = request.values.getlist("food")
-    p = Post.create(author=vkid, text=text)
-    for meal in food_list:
-        m = Meal.create_or_get(iikoid=meal)  # (<blueprints.models.Meal object at 0x104a0ad50>, True)
-        # print "m = {0} | {1}".format(repr(m), m[0])
-        PostMeal.create(post=p.post_id, meal=meal)
-    # TODO: customize return - may be it shall return the Post itself
+    text = request.form.get("text", None)
+    pic = request.files.get("pic", None)
+    latitude = request.form.get("latitude", None)
+    longitude = request.form.get("longitude", None)
+    if text and pic and latitude and longitude:
+        pic_url = save_picture(pic)
+        author = Person.get(Person.vkid == vkid)
+        author.posts += 1
+        author.save()
+        Post.create(author=author, text=text, pic_url=pic_url, latitude=latitude, longitude=longitude)
     return json.dumps({"success": 1})
 
 
-# TODO: load pics from IIKO API ...
+"""
+@api {post} /create_comment Add a comment to specific post, auth-cookie required
+@apiGroup Content
+@apiName CreateComment
+@apiVersion 0.1.0
+
+@apiParam {String} vkid User VK id
+@apiParam {String} post_id Post id
+@apiParam {String} text
+"""
+@main_app.route("/create_comment", methods=["POST"])
+@check_cookie()
+def create_new_comment():
+    vkid = request.form.get(VKID_NAME)
+    post_id = request.form.get("post_id", None)
+    text = request.form.get("text", None)
+    if post_id and text:
+        try:
+            p = Post.get(Post.post_id == post_id)
+            p.comments += 1
+            p.save()
+            Comment.create(post=p, author=vkid, text=text)
+            return json.dumps({"success": 1})
+        except DoesNotExist as e:
+            print "Post with id='{0}' doesn't exist: {0}".format(e)
+    return json.dumps({"success": 0})
+
+
 # TODO: pagination
-# get Person feed by VKID
+"""
+@api {get} /get_feed Get Person feed by VKID, auth-cookie required
+@apiGroup Content
+@apiName GetPersonFeed
+@apiVersion 0.1.0
+
+@apiParam {String} vkid User VK id
+@apiParam {String} person_id Person VK id
+@apiParam {String} order [date, like]
+"""
 @main_app.route("/get_feed", methods=["GET"])
 @check_cookie()
 def get_news_feed():
-    person_id = request.args.get(VKID_NAME)
+    person_id = request.args.get("person_id", None)
     order = request.args.get("order", "date")  # [date, likes]
     # page = request.args.get("page", 1)
     # limit = request.args.get("limit", 10)
@@ -44,38 +97,40 @@ def get_news_feed():
     if person_id:
         try:
             if order == "date":
-                query = Post.select(Post.post_id, Post.author, Post.text, Post.date, Post.likes, Meal.iikoid)\
-                    .join(PostMeal)\
-                    .join(Meal)\
+                query = Post.select(Post.post_id, Post.author, Post.text, Post.pic_url, Post.date, Post.latitude, Post.longitude, Post.likes, Post.comments)\
                     .where(Post.author == person_id, Post.is_deleted == False)\
                     .order_by(Post.date.desc())\
                     .tuples()
             else:
-                query = Post.select(Post.post_id, Post.author, Post.text, Post.date, Post.likes, Meal.iikoid)\
-                    .join(PostMeal)\
-                    .join(Meal)\
+                query = Post.select(Post.post_id, Post.author, Post.text, Post.pic_url, Post.date, Post.latitude, Post.longitude, Post.likes, Post.comments)\
                     .where(Post.author == person_id, Post.is_deleted == False)\
                     .order_by(Post.likes.desc())\
                     .tuples()
         except DoesNotExist:
             query = []
-        # render results
         res = prepare_feed_from_query_result(query)
         return json.dumps(res)
     else:
         return Response(status=400)
 
 
-# get feed of all persons I am following
+# TODO: pagination
+"""
+@api {get} /get_feed Get feed of all persons I am following, auth-cookie required
+@apiGroup Content
+@apiName GetGlobalFeed
+@apiVersion 0.1.0
+
+@apiParam {String} vkid User VK id
+"""
 @main_app.route("/global_feed", methods=["GET"])
 @check_cookie()
 def get_global_feed():
     person_id = request.args.get(VKID_NAME)
+    # TODO: add search by lat & lon
     sql = """
-SELECT p.`post_id`, p.`author_id`, p.`text`, p.`date`, p.`likes`, m.`iikoid` FROM `post` p
+SELECT p.`post_id`, p.`author_id`, p.`text`, p.`pic_url`, p.`date`, p.`latitude`, p.`longitude`, p.`likes`, p.`comments` FROM `post` p
 JOIN `personsubscriptions` ps ON p.`author_id` = ps.`owner_id`
-JOIN `postmeal` pm ON pm.`post_id` = p.`post_id`
-JOIN `meal` m ON m.`iikoid` = pm.`meal_id`
 WHERE ps.`follower_id` = %s AND p.`is_deleted` IS NOT TRUE
 """
     query = database.execute_sql(sql, person_id)
@@ -83,8 +138,40 @@ WHERE ps.`follower_id` = %s AND p.`is_deleted` IS NOT TRUE
     return json.dumps(res)
 
 
+"""
+@api {get} /get_map Get all posts at specific position
+@apiGroup Content
+@apiName GetPostsAtPosition
+@apiVersion 0.1.0
+
+@apiParam {String} latitude
+@apiParam {String} longitude
+"""
+@main_app.route("/get_map", methods=["GET"])
+def get_global_feed():
+    latitude = request.form.get("latitude", None)
+    longitude = request.form.get("longitude", None)
+    if latitude and longitude:
+        sql = """
+SELECT p.`post_id`, p.`author_id`, p.`text`, p.`pic_url`, p.`date`, p.`latitude`, p.`longitude`, p.`likes`, p.`comments` FROM `post` p
+WHERE p.`latitude` - %s <=  AND   AND p.`is_deleted` IS NOT TRUE AND p.`date` BETWEEN DATE_SUB(NOW(), INTERVAL 1 DAY) AND NOW()
+"""
+        query = database.execute_sql(sql, latitude, longitude)
+        res = prepare_feed_from_query_result(query)
+        return json.dumps(res)
+    else:
+        return json.dumps({"success": 0})
+
+
 # TODO: pagination
-# get detailed list of the Post-Likes contributors
+"""
+@api {get} /get_likes_to_post Get detailed list of the Post-Likes contributors
+@apiGroup Content
+@apiName GetPostLikers
+@apiVersion 0.1.0
+
+@apiParam {String} post_id Specific Post id
+"""
 @main_app.route("/get_likes_to_post", methods=["GET"])
 def get_likes():
     post_id = request.args.get("post_id", None)
@@ -103,6 +190,15 @@ def get_likes():
         return Response(status=400)
 
 
+"""
+@api {post} /like_post Like the Post, auth-cookie required
+@apiGroup Content
+@apiName LikePost
+@apiVersion 0.1.0
+
+@apiParam {String} vkid User VK id
+@apiParam {String} post_id Specific Post id
+"""
 @main_app.route("/like_post", methods=["POST"])
 @check_cookie()
 def like_post_request():
@@ -116,6 +212,15 @@ def like_post_request():
             return json.dumps({"success": 0})
 
 
+"""
+@api {post} /dislike_post Dislike the Post, auth-cookie required
+@apiGroup Content
+@apiName DislikePost
+@apiVersion 0.1.0
+
+@apiParam {String} vkid User VK id
+@apiParam {String} post_id Specific Post id
+"""
 @main_app.route("/dislike_post", methods=["POST"])
 @check_cookie()
 def dislike_post_request():
@@ -131,7 +236,22 @@ def dislike_post_request():
 
 # ########################## HELPERS ##########################
 
-# p.`post_id`, p.`author_id`, p.`text`, p.`date`, p.`likes`, m.`iikoid`
+def save_picture(pic):
+    # TODO: save pics in new subfolder every day
+    # folder_name = datetime.now().strftime("%Y-%m-%d")
+    file_name = "{0}-{1}".format() secure_filename(pic.filename)
+    # try:
+    #     b = os.path.join("media", folder_name)
+    #     if not os.path.isdir(b):
+    #         os.makedirs(b, exist_ok=True)
+    # except Exception as e:
+    #     print "create folder exception: {0}".format(e)
+    drct = os.path.join("media", file_name)
+    pic.save(drct)
+    return "http://188.226.142.44:5000/media/{0}".format(file_name)
+
+
+# p.`post_id`, p.`author_id`, p.`text`, p.`pic_url`, p.`date`, p.`latitude`, p.`longitude`, p.`likes`, p.`comments`
 def prepare_feed_from_query_result(query):
     res = {}
     for item in query:
@@ -141,22 +261,13 @@ def prepare_feed_from_query_result(query):
                 # "post_id": post_id,
                 "author_id": item[1],
                 "text": item[2],
-                "date": item[3].strftime("%Y-%m-%d %H:%M:%S"),
-                "likes": item[4],
-                "meals": {
-                    item[5]: {
-                        "name": "",
-                        "pic_url": "",
-                    }
-                }
+                "pic_url": item[3],
+                "date": item[4].strftime("%Y-%m-%d %H:%M:%S"),
+                "latitude": item[5],
+                "longitude": item[6],
+                "likes": item[7],
+                "comments": item[8],
             }
-        else:
-            iiko_id = item[5]
-            if iiko_id not in res[post_id]["meals"]:
-                res[post_id]["meals"][iiko_id] = {
-                    "name": "",
-                    "pic_url": "",
-                }
     return res
 
 
@@ -211,21 +322,45 @@ def dislike_post(person_id, post_id):
 
 def demo_add_post(person_id):
     _, words_amount, text = generate_sentence()
-    food_list = ["iiko{0}".format(random.randint(1000, 9999)) for _ in range(random.randint(1, 4))]
+    latitude = 1.0 * random.randint(0, 90000000) / 1000000
+    if random.randint(0, 100) < 50:
+        latitude *= -1
+    longitude = 1.0 * random.randint(0, 180000000) / 1000000
+    if random.randint(100, 200) > 150:
+        longitude *= -1
+    pic_url = "http://lorempixel.com/300/300/"
     try:
         if person_id:
-            # select exact user
             Person.get(Person.vkid == person_id)
         else:
-            # select random from base
             all_p = Person.select(Person.vkid)
             count = all_p.count() - 1
             person_id = all_p[random.randint(0, count)]
-        p = Post.create(author=person_id, text=text)
-        for meal in food_list:
-            Meal.get_or_create(iikoid=meal)
-            PostMeal.create(post=p.post_id, meal=meal)
-        print "Post with {0} meals added".format(len(food_list))
+        Post.create(author=person_id, text=text, pic_url=pic_url, latitude=latitude, longitude=longitude)
+        return True
+    except DoesNotExist:
+        return False
+
+
+def demo_add_comment(author_id, post_id):
+    _, words_amount, text = generate_sentence()
+    try:
+        if author_id:
+            Person.get(Person.vkid == author_id)
+        else:
+            all_pers = Person.select(Person.vkid)
+            count = all_pers.count() - 1
+            author_id = all_pers[random.randint(0, count)]
+
+        if post_id:
+            p = Post.get(Post.post_id == post_id)
+        else:
+            all_posts = Post.select()
+            count = all_posts.count() - 1
+            p = all_posts[random.randint(0, count)]
+            p.comments += 1
+            p.save()
+        Comment.create(post=p, author=author_id, text=text)
         return True
     except DoesNotExist:
         return False

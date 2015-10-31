@@ -19,7 +19,16 @@ security = Blueprint("security_module", __name__)
 def generate_cookie():
     return "wmfe-{0}".format(uuid.uuid4())
 
+"""
+@api {post} /register_user Register & get auth cookie in responce
+@apiGroup User
+@apiName RegisterUser
+@apiVersion 0.1.0
 
+@apiParam {String} vkid User VK id
+@apiParam {String} auth_token VK-API auth token
+@apiParam {String} recovery_code VK-API code to renew auth token when expires
+"""
 # pass 'vkid' and 'recovery_code' to register a new user before using API
 @security.route("/register_user", methods=["POST"])
 def reg_user():
@@ -66,6 +75,16 @@ def reg_user():
     return json.dumps({"message": message})
 
 
+"""
+@api {post} /renew_cookie Set new cookie
+@apiDescription Sets new cookie in responce. Call if 401
+@apiGroup User
+@apiName RenewUserCookie
+@apiVersion 0.1.0
+
+@apiParam {String} vkid User VK id
+@apiParam {String} recovery_code VK-API code to renew auth token when expires
+"""
 # pass valid 'vkid' and 'recovery_code' (from vk) to get a new cookie
 @security.route("/renew_cookie", methods=["POST"])
 def renew_cookie():
@@ -88,6 +107,15 @@ def renew_cookie():
     return r
 
 
+"""
+@api {post} /subscribe Follow a user with id=target_id
+@apiGroup User
+@apiName SubscribeOnUser
+@apiVersion 0.1.0
+
+@apiParam {String} vkid User VK id
+@apiParam {String} target_id Targer user VK id
+"""
 @security.route("/subscribe", methods=["POST"])
 @check_cookie()
 def subscribe():

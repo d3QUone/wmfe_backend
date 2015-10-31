@@ -17,9 +17,11 @@ class BaseModel(db.Model):
 class Person(BaseModel):
     vkid = db.CharField(unique=True, primary_key=True)
     auth_cookie = db.CharField()
+    auth_token = db.CharField()
     recovery_code = db.CharField()
     my_followers = db.IntegerField(default=0)
     following = db.IntegerField(default=0)
+    posts = db.IntegerField(default=0)
 
 
 class PersonSubscriptions(BaseModel):
@@ -27,25 +29,25 @@ class PersonSubscriptions(BaseModel):
     follower = db.ForeignKeyField(Person, related_name="my_follower", on_delete="CASCADE", on_update="CASCADE")
 
 
-class Meal(BaseModel):
-    iikoid = db.CharField(unique=True, primary_key=True)
-
-
 class Post(BaseModel):
     post_id = db.PrimaryKeyField()
     author = db.ForeignKeyField(Person, related_name="Post", on_delete="CASCADE", on_update="CASCADE")
     text = db.TextField()
+    pic_url = db.CharField()
     date = db.DateTimeField(default=datetime.datetime.now)
-    # geotag = db.BlobField()
+    latitude = db.DecimalField(max_digits=10, decimal_places=6, auto_round=False)  # -90; 90
+    longitude = db.DecimalField(max_digits=10, decimal_places=6, auto_round=False)  # -180; 180
     likes = db.IntegerField(default=0)
+    comments = db.IntegerField(default=0)
     is_deleted = db.BooleanField(default=False)
-    # is_in_favourites = db.BooleanField(default=False)
-    # is_selfliked
 
 
-class PostMeal(BaseModel):
-    post = db.ForeignKeyField(Post, related_name="PostMeal", on_delete="CASCADE", on_update="CASCADE")
-    meal = db.ForeignKeyField(Meal, related_name="PostMeal", on_delete="CASCADE", on_update="CASCADE")
+class Comment(BaseModel):
+    post = db.ForeignKeyField(Post, related_name="Comment", on_delete="CASCADE", on_update="CASCADE")
+    author = db.ForeignKeyField(Person, related_name="Comment", on_delete="CASCADE", on_update="CASCADE")
+    text = db.TextField()
+    date = db.DateTimeField(default=datetime.datetime.now)
+    is_deleted = db.BooleanField(default=False)
 
 
 class Likes(BaseModel):
@@ -54,14 +56,33 @@ class Likes(BaseModel):
     is_deleted = db.BooleanField(default=False)
 
 
-# class Favourites(BaseModel):
-#     person_id = db.ForeignKeyField(Person, related_name="Favourites", on_delete="CASCADE", on_update="CASCADE")
-#     post_id = db.ForeignKeyField(Post, related_name="Favourites", on_delete="CASCADE", on_update="CASCADE")
-#     is_deleted = db.BooleanField(default=False)
+GEO_DIST_PRC = """
+delimiter $$
+CREATE PROCEDURE geodist (IN mylon DECIMAL, IN mylat DECIMAL, IN dist INT)
+BEGIN
+    declare lon1 float;
+    declare lat1 float;
+
+    declare lon2 float;
+    declare lat2 float;
+
+    -- calculate lon and lat for the rectangle:
+    set lon1 = mylon-dist/abs(cos(radians(mylat))*69);
+    set lon2 = mylon+dist/abs(cos(radians(mylat))*69);
+    set lat1 = mylat-(dist/69);
+    set lat2 = mylat+(dist/69);
+
+    -- run the query:
+    SELECT destination.*,3956 * 2 * ASIN(SQRT( POWER(SIN((orig.lat -dest.lat) * pi()/180 / 2), 2) +COS(orig.lat * pi()/180) * COS(dest.lat * pi()/180) *POWER(SIN((orig.lon -dest.lon) * pi()/180 / 2), 2) )) as distance FROM users destination, users origin
+    WHERE origin.id=userid AND destination.longitude between lon1 AND lon2 AND destination.latitude between lat1 AND lat2
+    HAVING distance < dist ORDER BY Distance LIMIT 10;
+END $$
+delimiter ;
+"""
 
 
 def init_database():
-    for model in [Person, Meal, Post, PostMeal, Likes, PersonSubscriptions]:
+    for model in [Person, PersonSubscriptions, Post, Comment, Likes]:
         if not model.table_exists():
             model.create_table()
             print "Table {0} created - OK".format(model.__name__)
@@ -70,7 +91,7 @@ def init_database():
 
 
 def clear_db():
-    for model in [Person, Meal, Post, PostMeal, Likes, PersonSubscriptions]:
+    for model in [Person, PersonSubscriptions, Post, Comment, Likes]:
         if model.table_exists():
             model.drop_table()
         model.create_table()

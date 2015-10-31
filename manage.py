@@ -6,7 +6,7 @@ from app import app
 from blueprints.models import init_database
 from blueprints.models import clear_db as recreate_database
 from blueprints.security import demo_add_person, demo_random_subs, subscribe_on_target_person
-from blueprints.main import demo_add_post
+from blueprints.main import demo_add_post, demo_add_comment
 
 
 manager = Manager(app)
@@ -59,6 +59,21 @@ def add_post(owner):
         print "OK"
     else:
         print "Fuck"
+
+
+@manager.option("-a", dest="author_id")
+@manager.option("-p", dest="post_id")
+@manager.option("-n", dest="num")
+def add_comm(author_id, post_id, num):
+    if not num:
+        num = 1
+    if not isinstance(num, int):
+        num = int(num)
+    for _ in range(num):
+        if demo_add_comment(author_id, post_id):
+            print "OK"
+        else:
+            print "Fuck"
 
 
 if __name__ == "__main__":
