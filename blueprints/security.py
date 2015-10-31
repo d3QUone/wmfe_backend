@@ -151,11 +151,12 @@ def subscribe_on_target_person(owner_id, follower_id):
 # ########################## DEMO ##########################
 
 def demo_add_person():
-    vkid = "id{0}".format(random.randint(1000, 9999))
+    vkid = str(random.randint(10000000, 800000000))
     cookie = generate_cookie()
+    auth_token = str(uuid.uuid4())[:23]
     r_code = str(uuid.uuid4())[:23]
     try:
-        _, res = Person.get_or_create(vkid=vkid, auth_cookie=cookie, recovery_code=r_code)
+        _, res = Person.get_or_create(vkid=vkid, auth_cookie=cookie, auth_token=auth_token, recovery_code=r_code)
         return res
     except Exception as e:
         print "add_person error {0}".format(repr(e))
@@ -165,7 +166,6 @@ def demo_add_person():
 def demo_random_subs(amount):
     all_p = Person.select()
     count = all_p.count() - 1
-    # print dir(count), count
     for _ in range(amount):
         owner = all_p[random.randint(0, count)]
         follower = all_p[random.randint(0, count)]
