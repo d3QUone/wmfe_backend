@@ -52,7 +52,7 @@ def reg_user():
     r_code = request.form.get("recovery_code", None)
     if vkid and auth_token and r_code:
         new_cookie = generate_cookie()
-        p = Person.get_or_create(vkid=vkid)
+        p, _ = Person.get_or_create(vkid=vkid)
         p.auth_cookie = new_cookie
         p.auth_token = auth_token
         p.recovery_code = r_code
