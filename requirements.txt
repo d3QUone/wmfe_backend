@@ -1,5 +1,6 @@
 markupsafe
 loremipsum
+requests
 fabric
 flask
 flask-peewee

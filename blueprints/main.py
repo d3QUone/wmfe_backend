@@ -236,10 +236,10 @@ def dislike_post_request():
 
 # ########################## HELPERS ##########################
 
+# TODO: save pics in new subfolder every day
 def save_picture(pic):
-    # TODO: save pics in new subfolder every day
     # folder_name = datetime.now().strftime("%Y-%m-%d")
-    file_name = "{0}-{1}".format() secure_filename(pic.filename)
+    file_name = "{0}-{1}".format(uuid.uuid4(), secure_filename(pic.filename))
     # try:
     #     b = os.path.join("media", folder_name)
     #     if not os.path.isdir(b):

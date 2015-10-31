@@ -6,6 +6,7 @@ import uuid
 import json
 import random
 
+import requests
 from flask import Blueprint, Response, request
 
 from . import VKID_NAME
@@ -19,45 +20,63 @@ security = Blueprint("security_module", __name__)
 def generate_cookie():
     return "wmfe-{0}".format(uuid.uuid4())
 
+
+def get_friend_list(auth_token):
+    base_url = "https://api.vk.com/method/"
+    endpoint = "friends.get"
+    data = {
+        "auth_token": auth_token,
+        "v": "5.37",
+    }
+    r = requests.get(base_url + endpoint, params=data)
+    print "Got VK status-code={0}".format(r.status_code)
+    return r.json()
+
+
 """
 @api {post} /register_user Register & get auth cookie in responce
 @apiGroup User
 @apiName RegisterUser
+@apiDescription Pass everything to register a new user before using the API
 @apiVersion 0.1.0
 
 @apiParam {String} vkid User VK id
 @apiParam {String} auth_token VK-API auth token
 @apiParam {String} recovery_code VK-API code to renew auth token when expires
 """
-# pass 'vkid' and 'recovery_code' to register a new user before using API
 @security.route("/register_user", methods=["POST"])
 def reg_user():
     vkid = request.form.get(VKID_NAME, None)
     r_code = request.form.get("recovery_code", None)
-    friend_id_list = request.values.getlist("fr")
-    if vkid and r_code:
+    auth_token = request.form.get("auth_token", None)
+    if vkid and r_code and auth_token:
         try:
             Person.get(Person.vkid == vkid)
             message = "Person with VKID {0} was already registered, use /renew_cookie to get new auth cookie"
         except DoesNotExist:
             new_cookie = generate_cookie()
-            p = Person.create(vkid=vkid, recovery_code=r_code, auth_cookie=new_cookie)
+            p = Person.create(vkid=vkid, recovery_code=r_code, auth_token=auth_token, auth_cookie=new_cookie)
             # follow all friends and add all to followers
             do_save = False
-            for flwr in friend_id_list:
+            friend_id_list = get_friend_list(auth_token=auth_token)
+            print friend_id_list
+            for flwr in friend_id_list["response"]["items"]:
+                p_id = flwr["id"]
                 try:
-                    f = Person.get(Person.vkid == flwr)
+                    f = Person.get(Person.vkid == p_id)
                     f.following += 1
                     f.my_followers += 1
                     f.save()
-                    PersonSubscriptions.get_or_create(owner=vkid, follower=flwr)
-                    PersonSubscriptions.get_or_create(owner=flwr, follower=vkid)
+                    PersonSubscriptions.get_or_create(owner=vkid, follower=p_id)
+                    PersonSubscriptions.get_or_create(owner=p_id, follower=vkid)
 
                     p.following += 1
                     p.my_followers += 1
                     do_save = True
                 except DoesNotExist:
-                    print "Friend with id='{0}' doesn't exist".format(flwr)
+                    print "Friend '{0}' doesn't exist".format(flwr)
+                except Exception as e:
+                    print "Problem parsing JSON: {0}\n{1}".format(e, flwr)
             if do_save:
                 p.save()
             message = "Save 'auth' value, put in cookies, use in every request until it expires"
