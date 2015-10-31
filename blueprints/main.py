@@ -144,19 +144,18 @@ WHERE ps.`follower_id` = %s AND p.`is_deleted` IS NOT TRUE
 @apiName GetPostsAtPosition
 @apiVersion 0.1.0
 
-@apiParam {String} latitude
-@apiParam {String} longitude
+@apiParam {Decimal} latitude
+@apiParam {Decimal} longitude
+@apiParam {Int} distance Circle diameter in miles
 """
 @main_app.route("/get_map", methods=["GET"])
 def get_map():
     latitude = request.form.get("latitude", None)
     longitude = request.form.get("longitude", None)
-    if latitude and longitude:
-        sql = """
-SELECT p.`post_id`, p.`author_id`, p.`text`, p.`pic_url`, p.`date`, p.`latitude`, p.`longitude`, p.`likes`, p.`comments` FROM `post` p
-WHERE p.`latitude` - %s <=  AND   AND p.`is_deleted` IS NOT TRUE AND p.`date` BETWEEN DATE_SUB(NOW(), INTERVAL 1 DAY) AND NOW()
-"""
-        query = database.execute_sql(sql, latitude, longitude)
+    distance = request.form.get("distance", None)
+    if latitude and longitude and distance:
+        sql = "CALL geodist({0}, {1}, {2});".format(latitude, longitude, distance)
+        query = database.execute_sql(sql)
         res = prepare_feed_from_query_result(query)
         return json.dumps(res)
     else:

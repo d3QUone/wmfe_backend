@@ -68,8 +68,7 @@ def reg_user():
         # update friend list
         friend_id_list = get_friend_list(user_id=vkid, auth_token=auth_token)
         print friend_id_list
-        for flwr in friend_id_list["response"]["items"]:
-            p_id = flwr["id"]
+        for p_id in friend_id_list["response"]["items"]:
             try:
                 f = Person.get(Person.vkid == p_id)
                 f.following += 1
@@ -81,9 +80,9 @@ def reg_user():
                 p.following += 1
                 p.my_followers += 1
             except DoesNotExist:
-                print "Friend '{0}' doesn't exist".format(flwr)
+                print "Friend '{0}' doesn't exist".format(p_id)
             except Exception as e:
-                print "Problem parsing JSON: {0}\n{1}".format(e, flwr)
+                print "Problem parsing JSON: {0}".format(e)
         p.save()
     else:
         message = "POST parameters 'vkid', 'recovery_code', 'auth_token' are required"

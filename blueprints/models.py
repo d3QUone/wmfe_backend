@@ -56,6 +56,7 @@ class Likes(BaseModel):
     is_deleted = db.BooleanField(default=False)
 
 
+# dist == mile
 GEO_DIST_PRC = """
 delimiter $$
 CREATE PROCEDURE geodist (IN mylon DECIMAL, IN mylat DECIMAL, IN dist INT)
@@ -66,19 +67,18 @@ BEGIN
     declare lon2 float;
     declare lat2 float;
 
-    -- calculate lon and lat for the rectangle:
     set lon1 = mylon-dist/abs(cos(radians(mylat))*69);
     set lon2 = mylon+dist/abs(cos(radians(mylat))*69);
     set lat1 = mylat-(dist/69);
     set lat2 = mylat+(dist/69);
 
-    -- run the query:
-    SELECT destination.*,3956 * 2 * ASIN(SQRT( POWER(SIN((orig.lat -dest.lat) * pi()/180 / 2), 2) +COS(orig.lat * pi()/180) * COS(dest.lat * pi()/180) *POWER(SIN((orig.lon -dest.lon) * pi()/180 / 2), 2) )) as distance FROM users destination, users origin
-    WHERE origin.id=userid AND destination.longitude between lon1 AND lon2 AND destination.latitude between lat1 AND lat2
-    HAVING distance < dist ORDER BY Distance LIMIT 10;
+    SELECT destination.`post_id`, destination.`author_id`, destination.`text`, destination.`pic_url`, destination.`date`, destination.`latitude`, destination.`longitude`, destination.`likes`, destination.`comments`, 3956*2*ASIN(SQRT(POWER(SIN((origin.latitude-destination.latitude)*pi()/180/2), 2)+COS(origin.latitude*pi()/180)*COS(destination.latitude*pi()/180)*POWER(SIN((origin.longitude-destination.longitude)*pi()/180/2), 2))) AS distance
+    FROM `post` destination, `post` origin WHERE destination.longitude BETWEEN lon1 AND lon2 AND destination.latitude BETWEEN lat1 AND lat2 GROUP BY destination.`post_id` HAVING distance < dist AND distance > 0;
 END $$
 delimiter ;
+
 """
+# drop procedure geodist;
 
 
 def init_database():
