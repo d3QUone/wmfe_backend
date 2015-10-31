@@ -21,10 +21,11 @@ def generate_cookie():
     return "wmfe-{0}".format(uuid.uuid4())
 
 
-def get_friend_list(auth_token):
+def get_friend_list(user_id, auth_token):
     base_url = "https://api.vk.com/method/"
     endpoint = "friends.get"
     data = {
+        "user_id": user_id,
         "auth_token": auth_token,
         "v": "5.37",
     }
@@ -68,7 +69,7 @@ def reg_user():
             p = Person.create(vkid=vkid, recovery_code=r_code, auth_token=auth_token, auth_cookie=new_cookie)
             # follow all friends and add all to followers
             do_save = False
-            friend_id_list = get_friend_list(auth_token=auth_token)
+            friend_id_list = get_friend_list(user_id=vkid, auth_token=auth_token)
             print friend_id_list
             for flwr in friend_id_list["response"]["items"]:
                 p_id = flwr["id"]
@@ -100,7 +101,7 @@ def reg_user():
         except Exception as e:
             message = "Internal error: {0}".format(repr(e))
     else:
-        message = "POST parameters 'vkid' and 'r_code' are required"
+        message = "POST parameters 'vkid', 'recovery_code', 'auth_token' are required"
     return json.dumps({"message": message})
 
 
