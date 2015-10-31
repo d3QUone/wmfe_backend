@@ -57,17 +57,8 @@ def reg_user():
         p.auth_token = auth_token
         p.recovery_code = r_code
 
-        message = "Person with VKID {0} was already registered, use /renew_cookie to get new auth cookie"
-        r = Response(response=json.dumps({
-            "auth": new_cookie,
-            "message": message,
-        }), mimetype="application/json")
-        r.set_cookie("auth", new_cookie, expires=time.time()+datetime.timedelta(days=1).total_seconds())
-        r.status_code = 200
-
         # update friend list
         friend_id_list = get_friend_list(user_id=vkid, auth_token=auth_token)
-        print friend_id_list
         for p_id in friend_id_list["response"]["items"]:
             try:
                 f = Person.get(Person.vkid == p_id)
@@ -84,9 +75,9 @@ def reg_user():
             except Exception as e:
                 print "Problem parsing JSON: {0}".format(e)
         p.save()
+        return json.dumps({"auth": new_cookie})
     else:
-        message = "POST parameters 'vkid', 'recovery_code', 'auth_token' are required"
-    return json.dumps({"message": message})
+        return json.dumps({"message": "POST parameters 'vkid', 'recovery_code', 'auth_token' are required"})
 
 
 """
