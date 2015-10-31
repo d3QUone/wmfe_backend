@@ -6,7 +6,7 @@ import random
 import uuid
 
 from werkzeug.utils import secure_filename
-from flask import Blueprint, request, Response
+from flask import Blueprint, request
 from loremipsum import generate_sentence
 
 from . import VKID_NAME
@@ -111,7 +111,7 @@ def get_news_feed():
         res = prepare_feed_from_query_result(query)
         return json.dumps(res)
     else:
-        return Response(status=400)
+        return json.dumps({"message": "This person does not exist"})
 
 
 # TODO: pagination
@@ -159,7 +159,7 @@ def get_map():
         res = prepare_feed_from_query_result(query)
         return json.dumps(res)
     else:
-        return json.dumps({"success": 0})
+        return json.dumps({"message": "Parameters 'latitude', 'longitude' and 'distance' are required"})
 
 
 # TODO: pagination
@@ -186,7 +186,7 @@ def get_likes():
             })
         return json.dumps(res)
     else:
-        return Response(status=400)
+        return json.dumps({"message": "This post does not exist"})
 
 
 """

@@ -1,13 +1,11 @@
 __author__ = 'vladimir'
 
-import time
-import datetime
 import uuid
 import json
 import random
 
 import requests
-from flask import Blueprint, Response, request
+from flask import Blueprint, request
 
 from . import VKID_NAME
 from .decorators import check_cookie
@@ -29,7 +27,7 @@ def get_friend_list(user_id, auth_token):
         "auth_token": auth_token,
         "v": "5.37",
     }
-    r = requests.get(base_url + endpoint, params=data)
+    r = requests.get(base_url + endpoint, params=data, verify=False)
     print "Got VK status-code={0}".format(r.status_code)
     return r.json()
 
@@ -94,23 +92,17 @@ def reg_user():
 def renew_cookie():
     vkid = request.form.get(VKID_NAME, None)
     r_code = request.form.get("recovery_code", None)
-    r = Response()
     if vkid and r_code:
         try:
             p = Person.get(Person.vkid == vkid, Person.recovery_code == r_code)
             new_cookie = generate_cookie()
             p.auth_cookie = new_cookie
             p.save()
-            r.response = json.dumps({
-                "auth": new_cookie,
-            })
-            r.status_code = 200
+            return json.dumps({"auth": new_cookie})
         except DoesNotExist:
-            r.status_code = 401
+            return json.dumps({"message": "this person doesn't exist"})
         except Exception as e:
-            r.status_code = 500
-            print "renew_cookie error: {0}".format(repr(e))
-    return r
+            return json.dumps({"message": "internal error: {0}".format(repr(e))})
 
 
 """
