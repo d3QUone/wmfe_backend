@@ -48,13 +48,14 @@ def get_friend_list(user_id, auth_token):
 @security.route("/register_user", methods=["POST"])
 def reg_user():
     vkid = request.form.get(VKID_NAME, None)
-    r_code = request.form.get("recovery_code", None)
     auth_token = request.form.get("auth_token", None)
-    if vkid and r_code and auth_token:
+    r_code = request.form.get("recovery_code", None)
+    if vkid and auth_token and r_code:
         new_cookie = generate_cookie()
-        p = Person.get_or_create(Person.vkid == vkid)
+        p = Person.get_or_create(vkid=vkid)
         p.auth_cookie = new_cookie
-        p.save()
+        p.auth_token = auth_token
+        p.recovery_code = r_code
 
         message = "Person with VKID {0} was already registered, use /renew_cookie to get new auth cookie"
         r = Response(response=json.dumps({
@@ -65,7 +66,6 @@ def reg_user():
         r.status_code = 200
 
         # update friend list
-        do_save = False
         friend_id_list = get_friend_list(user_id=vkid, auth_token=auth_token)
         print friend_id_list
         for flwr in friend_id_list["response"]["items"]:
@@ -80,13 +80,11 @@ def reg_user():
 
                 p.following += 1
                 p.my_followers += 1
-                do_save = True
             except DoesNotExist:
                 print "Friend '{0}' doesn't exist".format(flwr)
             except Exception as e:
                 print "Problem parsing JSON: {0}\n{1}".format(e, flwr)
-        if do_save:
-            p.save()
+        p.save()
     else:
         message = "POST parameters 'vkid', 'recovery_code', 'auth_token' are required"
     return json.dumps({"message": message})
