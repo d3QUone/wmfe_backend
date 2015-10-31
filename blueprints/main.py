@@ -321,12 +321,11 @@ def dislike_post(person_id, post_id):
 
 def demo_add_post(person_id):
     _, words_amount, text = generate_sentence()
-    latitude = 1.0 * random.randint(0, 90000000) / 1000000
-    if random.randint(0, 100) < 50:
-        latitude *= -1
-    longitude = 1.0 * random.randint(0, 180000000) / 1000000
-    if random.randint(100, 200) > 150:
-        longitude *= -1
+    # Piter coordinates:
+    # lat, lon
+    # 59.93900, 30.325896
+    latitude = 59.0 + 1.0 * random.randint(850000, 999999) / 1000000
+    longitude = 30.0 + 1.0 * random.randint(200000, 399999) / 1000000
     pic_url = "http://lorempixel.com/300/300/"
     try:
         if person_id:
