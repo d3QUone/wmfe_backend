@@ -50,11 +50,21 @@ def reg_user():
     r_code = request.form.get("recovery_code", None)
     auth_token = request.form.get("auth_token", None)
     if vkid and r_code and auth_token:
+        new_cookie = generate_cookie()
         try:
-            Person.get(Person.vkid == vkid)
+            p = Person.get(Person.vkid == vkid)
+            p.auth_cookie = new_cookie
+            p.save()
+
             message = "Person with VKID {0} was already registered, use /renew_cookie to get new auth cookie"
+            r = Response(response=json.dumps({
+                "auth": new_cookie,
+                "message": message,
+            }), mimetype="application/json")
+            r.set_cookie("auth", new_cookie, expires=time.time()+datetime.timedelta(days=1).total_seconds())
+            r.status_code = 200
+            return r
         except DoesNotExist:
-            new_cookie = generate_cookie()
             p = Person.create(vkid=vkid, recovery_code=r_code, auth_token=auth_token, auth_cookie=new_cookie)
             # follow all friends and add all to followers
             do_save = False
