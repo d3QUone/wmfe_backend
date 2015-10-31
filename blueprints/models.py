@@ -18,6 +18,13 @@ class Person(BaseModel):
     vkid = db.CharField(unique=True, primary_key=True)
     auth_cookie = db.CharField()
     recovery_code = db.CharField()
+    my_followers = db.IntegerField(default=0)
+    following = db.IntegerField(default=0)
+
+
+class PersonSubscriptions(BaseModel):
+    owner = db.ForeignKeyField(Person, related_name="main", on_delete="CASCADE", on_update="CASCADE")
+    follower = db.ForeignKeyField(Person, related_name="my_follower", on_delete="CASCADE", on_update="CASCADE")
 
 
 class Meal(BaseModel):
@@ -34,6 +41,7 @@ class Post(BaseModel):
     is_deleted = db.BooleanField(default=False)
     # is_in_favourites = db.BooleanField(default=False)
     # is_selfliked
+
 
 class PostMeal(BaseModel):
     post = db.ForeignKeyField(Post, related_name="PostMeal", on_delete="CASCADE", on_update="CASCADE")
@@ -53,7 +61,7 @@ class Likes(BaseModel):
 
 
 def init_database():
-    for model in [Person, Meal, Post, PostMeal, Likes]:
+    for model in [Person, Meal, Post, PostMeal, Likes, PersonSubscriptions]:
         if not model.table_exists():
             model.create_table()
             print "Table {0} created - OK".format(model.__name__)
@@ -62,7 +70,7 @@ def init_database():
 
 
 def clear_db():
-    for model in [Person, Meal, Post, PostMeal, Likes]:
+    for model in [Person, Meal, Post, PostMeal, Likes, PersonSubscriptions]:
         if model.table_exists():
             model.drop_table()
         model.create_table()

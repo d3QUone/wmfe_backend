@@ -1,3 +1,5 @@
+markupsafe
+loremipsum
 fabric
 flask
 flask-peewee

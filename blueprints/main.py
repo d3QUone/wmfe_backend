@@ -1,12 +1,14 @@
 __author__ = 'vladimir'
 
 import json
+import random
 
 from flask import Blueprint, request, Response
+from loremipsum import generate_sentence
 
 from . import VKID_NAME
 from .decorators import check_cookie
-from .models import Person, Post, Meal, PostMeal, Likes, DoesNotExist
+from .models import BaseModel, Person, PersonSubscriptions, Post, Meal, PostMeal, Likes, DoesNotExist, database
 
 main_app = Blueprint("api", __name__)
 
@@ -58,33 +60,27 @@ def get_news_feed():
         except DoesNotExist:
             query = []
         # render results
-        res = {}
-        for item in query:
-            post_id = item[0]
-            if post_id not in res:
-                res[post_id] = {
-                    # "post_id": post_id,
-                    "author_id": item[1],
-                    "text": item[2],
-                    "date": item[3].strftime("%Y-%m-%d %H:%M:%S"),
-                    "likes": item[4],
-                    "meals": {
-                        item[5]: {
-                            "name": "",
-                            "pic_url": "",
-                        }
-                    }
-                }
-            else:
-                iiko_id = item[5]
-                if iiko_id not in res[post_id]["meals"]:
-                    res[post_id]["meals"][iiko_id] = {
-                        "name": "",
-                        "pic_url": "",
-                    }
+        res = prepare_feed_from_query_result(query)
         return json.dumps(res)
     else:
         return Response(status=400)
+
+
+# get feed of all persons I am following
+@main_app.route("/global_feed", methods=["GET"])
+@check_cookie()
+def get_global_feed():
+    person_id = request.args.get(VKID_NAME)
+    sql = """
+SELECT p.`post_id`, p.`author_id`, p.`text`, p.`date`, p.`likes`, m.`iikoid` FROM `post` p
+JOIN `personsubscriptions` ps ON p.`author_id` = ps.`owner_id`
+JOIN `postmeal` pm ON pm.`post_id` = p.`post_id`
+JOIN `meal` m ON m.`iikoid` = pm.`meal_id`
+WHERE ps.`follower_id` = %s AND p.`is_deleted` IS NOT TRUE
+"""
+    query = database.execute_sql(sql, person_id)
+    res = prepare_feed_from_query_result(query)
+    return json.dumps(res)
 
 
 # TODO: pagination
@@ -135,6 +131,35 @@ def dislike_post_request():
 
 # ########################## HELPERS ##########################
 
+# p.`post_id`, p.`author_id`, p.`text`, p.`date`, p.`likes`, m.`iikoid`
+def prepare_feed_from_query_result(query):
+    res = {}
+    for item in query:
+        post_id = item[0]
+        if post_id not in res:
+            res[post_id] = {
+                # "post_id": post_id,
+                "author_id": item[1],
+                "text": item[2],
+                "date": item[3].strftime("%Y-%m-%d %H:%M:%S"),
+                "likes": item[4],
+                "meals": {
+                    item[5]: {
+                        "name": "",
+                        "pic_url": "",
+                    }
+                }
+            }
+        else:
+            iiko_id = item[5]
+            if iiko_id not in res[post_id]["meals"]:
+                res[post_id]["meals"][iiko_id] = {
+                    "name": "",
+                    "pic_url": "",
+                }
+    return res
+
+
 # helper to add a entry (or add back) in the Like table and update the Post entry
 def like_post(person_id, post_id):
     try:
@@ -180,3 +205,27 @@ def dislike_post(person_id, post_id):
     except Exception as e:
         print "dislike_post exception: {0}".format(repr(e))
     return False
+
+
+# ########################## DEMO ##########################
+
+def demo_add_post(person_id):
+    _, words_amount, text = generate_sentence()
+    food_list = ["iiko{0}".format(random.randint(1000, 9999)) for _ in range(random.randint(1, 4))]
+    try:
+        if person_id:
+            # select exact user
+            Person.get(Person.vkid == person_id)
+        else:
+            # select random from base
+            all_p = Person.select(Person.vkid)
+            count = all_p.count() - 1
+            person_id = all_p[random.randint(0, count)]
+        p = Post.create(author=person_id, text=text)
+        for meal in food_list:
+            Meal.get_or_create(iikoid=meal)
+            PostMeal.create(post=p.post_id, meal=meal)
+        print "Post with {0} meals added".format(len(food_list))
+        return True
+    except DoesNotExist:
+        return False

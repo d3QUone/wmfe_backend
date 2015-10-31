@@ -21,8 +21,10 @@ def check_cookie(verbose=True):
             auth_cookie = request.cookies.get(AUTH_COOKIE_NAME, None)
             vkid = request.values.get(VKID_NAME, None)  # get arg from any request type
             if verbose:
+                print "*"*40
                 print "args keys: {0}, kwargs keys: {1}\ncookies keys: {2}\nMethod: {3}".format(args, kwargs.keys(), request.cookies.keys(), request.method)
                 print "checking VKID '{0}'".format(vkid)
+                print "*"*40
             if auth_cookie and vkid:
                 try:
                     Person.get(Person.vkid == vkid, Person.auth_cookie == auth_cookie)
