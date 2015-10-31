@@ -52,54 +52,41 @@ def reg_user():
     auth_token = request.form.get("auth_token", None)
     if vkid and r_code and auth_token:
         new_cookie = generate_cookie()
-        try:
-            p = Person.get(Person.vkid == vkid)
-            p.auth_cookie = new_cookie
+        p = Person.get_or_create(Person.vkid == vkid)
+        p.auth_cookie = new_cookie
+        p.save()
+
+        message = "Person with VKID {0} was already registered, use /renew_cookie to get new auth cookie"
+        r = Response(response=json.dumps({
+            "auth": new_cookie,
+            "message": message,
+        }), mimetype="application/json")
+        r.set_cookie("auth", new_cookie, expires=time.time()+datetime.timedelta(days=1).total_seconds())
+        r.status_code = 200
+
+        # update friend list
+        do_save = False
+        friend_id_list = get_friend_list(user_id=vkid, auth_token=auth_token)
+        print friend_id_list
+        for flwr in friend_id_list["response"]["items"]:
+            p_id = flwr["id"]
+            try:
+                f = Person.get(Person.vkid == p_id)
+                f.following += 1
+                f.my_followers += 1
+                f.save()
+                PersonSubscriptions.get_or_create(owner=vkid, follower=p_id)
+                PersonSubscriptions.get_or_create(owner=p_id, follower=vkid)
+
+                p.following += 1
+                p.my_followers += 1
+                do_save = True
+            except DoesNotExist:
+                print "Friend '{0}' doesn't exist".format(flwr)
+            except Exception as e:
+                print "Problem parsing JSON: {0}\n{1}".format(e, flwr)
+        if do_save:
             p.save()
-
-            message = "Person with VKID {0} was already registered, use /renew_cookie to get new auth cookie"
-            r = Response(response=json.dumps({
-                "auth": new_cookie,
-                "message": message,
-            }), mimetype="application/json")
-            r.set_cookie("auth", new_cookie, expires=time.time()+datetime.timedelta(days=1).total_seconds())
-            r.status_code = 200
-            return r
-        except DoesNotExist:
-            p = Person.create(vkid=vkid, recovery_code=r_code, auth_token=auth_token, auth_cookie=new_cookie)
-            # follow all friends and add all to followers
-            do_save = False
-            friend_id_list = get_friend_list(user_id=vkid, auth_token=auth_token)
-            print friend_id_list
-            for flwr in friend_id_list["response"]["items"]:
-                p_id = flwr["id"]
-                try:
-                    f = Person.get(Person.vkid == p_id)
-                    f.following += 1
-                    f.my_followers += 1
-                    f.save()
-                    PersonSubscriptions.get_or_create(owner=vkid, follower=p_id)
-                    PersonSubscriptions.get_or_create(owner=p_id, follower=vkid)
-
-                    p.following += 1
-                    p.my_followers += 1
-                    do_save = True
-                except DoesNotExist:
-                    print "Friend '{0}' doesn't exist".format(flwr)
-                except Exception as e:
-                    print "Problem parsing JSON: {0}\n{1}".format(e, flwr)
-            if do_save:
-                p.save()
-            message = "Save 'auth' value, put in cookies, use in every request until it expires"
-            r = Response(response=json.dumps({
-                "auth": new_cookie,
-                "message": message,
-            }), mimetype="application/json")
-            r.set_cookie("auth", new_cookie, expires=time.time()+datetime.timedelta(days=1).total_seconds())
-            r.status_code = 200
-            return r
-        except Exception as e:
-            message = "Internal error: {0}".format(repr(e))
     else:
         message = "POST parameters 'vkid', 'recovery_code', 'auth_token' are required"
     return json.dumps({"message": message})
