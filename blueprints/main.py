@@ -148,7 +148,7 @@ WHERE ps.`follower_id` = %s AND p.`is_deleted` IS NOT TRUE
 @apiParam {String} longitude
 """
 @main_app.route("/get_map", methods=["GET"])
-def get_global_feed():
+def get_map():
     latitude = request.form.get("latitude", None)
     longitude = request.form.get("longitude", None)
     if latitude and longitude:
