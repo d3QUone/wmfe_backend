@@ -157,7 +157,10 @@ def get_map():
     distance = request.args.get("distance", None)
     if longitude and latitude and distance:
         # sql = "CALL geodist({0}, {1}, {2});".format(longitude, latitude, distance)  # Fuck this
-        sql = "SELECT p.`post_id`, p.`author_id`, p.`text`, p.`pic_url`, p.`date`, p.`latitude`, p.`longitude`, p.`likes`, p.`comments` FROM `post` p WHERE p.`date` BETWEEN DATE_SUB(NOW(), INTERVAL 1 DAY)  AND NOW()"
+        sql = """
+SELECT p.`post_id`, p.`author_id`, p.`text`, p.`pic_url`, p.`date`, p.`latitude`, p.`longitude`, p.`likes`, p.`comments` FROM `post` p
+WHERE p.`date` BETWEEN DATE_SUB(NOW(), INTERVAL 1 DAY) AND NOW() ORDER BY p.`date` DESC LIMIT 5
+"""
         query = database.execute_sql(sql)
         res = prepare_feed_from_query_result(query)
         return json.dumps(res)
