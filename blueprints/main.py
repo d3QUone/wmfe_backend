@@ -30,7 +30,7 @@ main_app = Blueprint("api", __name__)
 @apiParam {String} longitude
 """
 @main_app.route("/create_post", methods=["POST"])
-@check_cookie()
+# @check_cookie()
 def create_new_post():
     vkid = request.form.get(VKID_NAME)
     text = request.form.get("text", None)
