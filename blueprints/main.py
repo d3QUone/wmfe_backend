@@ -150,11 +150,11 @@ WHERE ps.`follower_id` = %s AND p.`is_deleted` IS NOT TRUE
 """
 @main_app.route("/get_map", methods=["GET"])
 def get_map():
-    latitude = request.args.get("latitude", None)
     longitude = request.args.get("longitude", None)
+    latitude = request.args.get("latitude", None)
     distance = request.args.get("distance", None)
-    if latitude and longitude and distance:
-        sql = "CALL geodist({0}, {1}, {2});".format(latitude, longitude, distance)
+    if longitude and latitude and distance:
+        sql = "CALL geodist({0}, {1}, {2});".format(longitude, latitude, distance)
         query = database.execute_sql(sql)
         res = prepare_feed_from_query_result(query)
         return json.dumps(res)
