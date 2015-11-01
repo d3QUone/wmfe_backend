@@ -43,7 +43,9 @@ def create_new_post():
         author.posts += 1
         author.save()
         Post.create(author=author, text=text, pic_url="", latitude=latitude, longitude=longitude)
-    return json.dumps({"success": 1})
+        return json.dumps({"success": 1})
+    else:
+        return json.dumps({"success": 0})
 
 
 """
