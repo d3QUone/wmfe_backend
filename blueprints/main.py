@@ -34,15 +34,15 @@ main_app = Blueprint("api", __name__)
 def create_new_post():
     vkid = request.form.get(VKID_NAME)
     text = request.form.get("text", None)
-    pic = request.files.get("pic", None)
+    # pic = request.files.get("pic", None)
     latitude = request.form.get("latitude", None)
     longitude = request.form.get("longitude", None)
-    if text and pic and latitude and longitude:
-        pic_url = save_picture(pic)
+    if text and latitude and longitude:
+        # pic_url = save_picture(pic)
         author = Person.get(Person.vkid == vkid)
         author.posts += 1
         author.save()
-        Post.create(author=author, text=text, pic_url=pic_url, latitude=latitude, longitude=longitude)
+        Post.create(author=author, text=text, pic_url="", latitude=latitude, longitude=longitude)
     return json.dumps({"success": 1})
 
 
@@ -155,7 +155,7 @@ def get_map():
     distance = request.args.get("distance", None)
     if longitude and latitude and distance:
         # sql = "CALL geodist({0}, {1}, {2});".format(longitude, latitude, distance)  # Fuck this
-        sql = "SELECT p.`post_id`, p.`author_id`, p.`text`, p.`pic_url`, p.`date`, p.`latitude`, p.`longitude`, p.`likes`, p.`comments` FROM `post` p"
+        sql = "SELECT p.`post_id`, p.`author_id`, p.`text`, p.`pic_url`, p.`date`, p.`latitude`, p.`longitude`, p.`likes`, p.`comments` FROM `post` p WHERE p.`date` BETWEEN DATE_SUB(NOW(), INTERVAL 1 DAY)  AND NOW()"
         query = database.execute_sql(sql)
         res = prepare_feed_from_query_result(query)
         return json.dumps(res)
