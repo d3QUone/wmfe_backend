@@ -154,7 +154,8 @@ def get_map():
     latitude = request.args.get("latitude", None)
     distance = request.args.get("distance", None)
     if longitude and latitude and distance:
-        sql = "CALL geodist({0}, {1}, {2});".format(longitude, latitude, distance)
+        # sql = "CALL geodist({0}, {1}, {2});".format(longitude, latitude, distance)  # Fuck this
+        sql = "SELECT p.`post_id`, p.`author_id`, p.`text`, p.`pic_url`, p.`date`, p.`latitude`, p.`longitude`, p.`likes`, p.`comments` FROM `post` p"
         query = database.execute_sql(sql)
         res = prepare_feed_from_query_result(query)
         return json.dumps(res)
@@ -262,8 +263,8 @@ def prepare_feed_from_query_result(query):
                 "text": item[2],
                 "pic_url": item[3],
                 "date": item[4].strftime("%Y-%m-%d %H:%M:%S"),
-                "latitude": item[5],
-                "longitude": item[6],
+                "latitude": float(item[5]),
+                "longitude": float(item[6]),
                 "likes": item[7],
                 "comments": item[8],
             }
