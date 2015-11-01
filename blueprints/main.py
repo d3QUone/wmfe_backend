@@ -258,21 +258,20 @@ def save_picture(pic):
 
 # p.`post_id`, p.`author_id`, p.`text`, p.`pic_url`, p.`date`, p.`latitude`, p.`longitude`, p.`likes`, p.`comments`
 def prepare_feed_from_query_result(query):
-    res = {}
+    res = []
+    append = res.append
     for item in query:
-        post_id = item[0]
-        if post_id not in res:
-            res[post_id] = {
-                # "post_id": post_id,
-                "author_id": item[1],
-                "text": item[2],
-                "pic_url": item[3],
-                "date": item[4].strftime("%Y-%m-%d %H:%M:%S"),
-                "latitude": float(item[5]),
-                "longitude": float(item[6]),
-                "likes": item[7],
-                "comments": item[8],
-            }
+        append({
+            "post_id": item[0],
+            "author_id": item[1],
+            "text": item[2],
+            "pic_url": item[3],
+            "date": item[4].strftime("%Y-%m-%d %H:%M:%S"),
+            "latitude": float(item[5]),
+            "longitude": float(item[6]),
+            "likes": item[7],
+            "comments": item[8],
+        })
     return res
 
 
