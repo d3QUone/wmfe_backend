@@ -159,7 +159,7 @@ def get_map():
         # sql = "CALL geodist({0}, {1}, {2});".format(longitude, latitude, distance)  # Fuck this
         sql = """
 SELECT p.`post_id`, p.`author_id`, p.`text`, p.`pic_url`, p.`date`, p.`latitude`, p.`longitude`, p.`likes`, p.`comments` FROM `post` p
-WHERE p.`date` BETWEEN DATE_SUB(NOW(), INTERVAL 1 DAY) AND NOW() ORDER BY p.`date` DESC LIMIT 5
+WHERE p.`date` BETWEEN DATE_SUB(NOW(), INTERVAL 1 DAY) AND NOW() ORDER BY p.`date` DESC LIMIT 7
 """
         query = database.execute_sql(sql)
         res = prepare_feed_from_query_result(query)
