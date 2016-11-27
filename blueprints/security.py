@@ -1,35 +1,19 @@
-__author__ = 'vladimir'
-
-import uuid
+# coding: utf-8
 import json
-import random
 
-import requests
 from flask import Blueprint, request
+from flask_peewee.db import DoesNotExist
 
-from . import VKID_NAME
-from .decorators import check_cookie
-from .models import Person, PersonSubscriptions, DoesNotExist
+from blueprints import VKID_NAME
+from blueprints.decorators import check_cookie
+from blueprints.functions import generate_cookie
+from blueprints.functions import get_friend_list
+from blueprints.functions import subscribe_on_target_person
+from blueprints.models import Person
+from blueprints.models import PersonSubscriptions
 
 
 security = Blueprint("security_module", __name__)
-
-
-def generate_cookie():
-    return "wmfe-{0}".format(uuid.uuid4())
-
-
-def get_friend_list(user_id, auth_token):
-    base_url = "https://api.vk.com/method/"
-    endpoint = "friends.get"
-    data = {
-        "user_id": user_id,
-        "auth_token": auth_token,
-        "v": "5.37",
-    }
-    r = requests.get(base_url + endpoint, params=data, verify=False)
-    print "Got VK status-code={0}".format(r.status_code)
-    return r.json()
 
 
 """
@@ -115,7 +99,7 @@ def renew_cookie():
 @apiParam {String} target_id Targer user VK id
 """
 @security.route("/subscribe", methods=["POST"])
-@check_cookie()
+@check_cookie
 def subscribe():
     vkid = request.form.get(VKID_NAME, None)
     target_id = request.form.get("target_id", None)
@@ -127,49 +111,3 @@ def subscribe():
                 "success": 0,
                 "message": "User with id='{0}' does not exist".format(target_id)
             })
-
-
-# ########################## HELPERS ##########################
-
-def subscribe_on_target_person(owner_id, follower_id):
-    try:
-        t = Person.get(Person.vkid == owner_id)
-        t.following += 1
-        t.save()
-
-        p = Person.get(Person.vkid == follower_id)
-        p.my_followers += 1
-        p.save()
-
-        _, res = PersonSubscriptions.get_or_create(owner=t, follower=p)
-        return res
-    except DoesNotExist as e:
-        print "Person with id='{0}' doesn't exist\nError: {1}".format(owner_id, repr(e))
-        return False
-
-
-# ########################## DEMO ##########################
-
-def demo_add_person():
-    vkid = str(random.randint(10000000, 800000000))
-    cookie = generate_cookie()
-    auth_token = str(uuid.uuid4())[:23]
-    r_code = str(uuid.uuid4())[:23]
-    try:
-        _, res = Person.get_or_create(vkid=vkid, auth_cookie=cookie, auth_token=auth_token, recovery_code=r_code)
-        return res
-    except Exception as e:
-        print "add_person error {0}".format(repr(e))
-        return False
-
-
-def demo_random_subs(amount):
-    all_p = Person.select()
-    count = all_p.count() - 1
-    for _ in range(amount):
-        owner = all_p[random.randint(0, count)]
-        follower = all_p[random.randint(0, count)]
-        if owner.vkid != follower.vkid:
-            subscribe_on_target_person(owner_id=owner.vkid, follower_id=follower.vkid)
-        else:
-            print "LOL, owner==follower"

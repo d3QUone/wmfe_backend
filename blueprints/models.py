@@ -1,12 +1,15 @@
-__author__ = 'vladimir'
-
+# coding: utf-8
 import datetime
 
 from flask_peewee import db
-from flask_peewee.db import DoesNotExist
 
 
-database = db.MySQLDatabase('wmfe_backend', **{'host': '127.0.0.1', 'password': 'MuchSecurePassword', 'user': 'vladimir'})
+database = db.MySQLDatabase(
+    'wmfe_backend',
+    host='127.0.0.1',
+    password='MuchSecurePassword',
+    user='vladimir',
+)
 
 
 class BaseModel(db.Model):
@@ -79,20 +82,3 @@ delimiter ;
 
 """
 # drop procedure geodist;
-
-
-def init_database():
-    for model in [Person, PersonSubscriptions, Post, Comment, Likes]:
-        if not model.table_exists():
-            model.create_table()
-            print "Table {0} created - OK".format(model.__name__)
-        else:
-            print "Table {0} already exists".format(model.__name__)
-
-
-def clear_db():
-    for model in [Person, PersonSubscriptions, Post, Comment, Likes]:
-        if model.table_exists():
-            model.drop_table()
-        model.create_table()
-        print "Table '{0}' re-created - OK".format(model.__name__)

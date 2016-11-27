@@ -1,6 +1,6 @@
 {
   "name": "VK-hackathon App backend",
-  "version": "0.1",
+  "version": "0.2",
   "url" : "http://188.226.142.44:5000",
   "sampleUrl": "http://127.0.0.1:8080",
   "template": { 
